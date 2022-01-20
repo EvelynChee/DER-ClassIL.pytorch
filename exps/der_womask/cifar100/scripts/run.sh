@@ -1,31 +1,34 @@
 #!/usr/bin/env bash
-name='10scifar100_trial0_debug'
-debug='1'
+debug='0'
 comments='None'
-expid='1'
+trial=1
+devices=3
+pretrain=0
+step=10
+name="cifar100_b${pretrain}_s${step}_trial${trial}_ours_v4"
 
 
 if [ ${debug} -eq '0' ]; then
-    python -m main train with "./configs/${expid}.yaml" \
+    CUDA_VISIBLE_DEVICES="${devices}" python3 -m main train with "./configs/b${pretrain}_s${step}_ours.yaml" \
         exp.name="${name}" \
         exp.savedir="./logs/" \
         exp.ckptdir="./logs/" \
         exp.tensorboard_dir="./tensorboard/" \
-        trial=0 \
+        trial=${trial} \
         --name="${name}" \
         -D \
         -p \
         -c "${comments}" \
         --force \
-        --mongo_db=10.10.10.100:30620:classil
         # --mongo_db=10.10.10.100:30620:classil
 else
-    python -m main train with "./configs/${expid}.yaml" \
-        exp.name="${name}" \
+    CUDA_VISIBLE_DEVICES="${devices}" python3 -m main train with "./configs/b${pretrain}_s${step}.yaml" \
+        exp.name="${name}_debug" \
         exp.savedir="./logs/" \
         exp.ckptdir="./logs/" \
         exp.tensorboard_dir="./tensorboard/" \
         exp.debug=True \
+        trial=${trial} \
         --name="${name}" \
         -D \
         -p \

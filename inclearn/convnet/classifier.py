@@ -26,6 +26,7 @@ class CosineClassifier(Module):
 
     def forward(self, input):
         out = F.linear(F.normalize(input, p=2, dim=1), F.normalize(self.weight, p=2, dim=1))
+        bs_out = out
         if self.sigma is not None:
             out = self.sigma * out
-        return out
+        return out, bs_out

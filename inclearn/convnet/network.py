@@ -74,15 +74,44 @@ class BasicNet(nn.Module):
             raise Exception("Add some classes before training.")
 
         if self.der:
-            features = [convnet(x) for convnet in self.convnets]
-            features = torch.cat(features, 1)
+#             features = [convnet(x) for convnet in self.convnets]
+#             features = torch.cat(features, 1)
+            
+            features = []
+            prev_out = []
+            for i, convnet in enumerate(self.convnets):
+                cur_out = convnet(x, prev_out)
+                for j in range(len(cur_out)-1):
+                    if i == 0:
+                        prev_out.append([cur_out[j]])
+                    else:
+                        prev_out[j].append(cur_out[j])
+                features.append(cur_out[-1])
+            features = torch.cat(features, dim=1)
+            
         else:
             features = self.convnet(x)
 
         logits = self.classifier(features)
+        if self.weight_normalization:
+            logits, logits_bs = logits
+        else:
+            logits_bs = None
 
-        aux_logits = self.aux_classifier(features[:, -self.out_dim:]) if features.shape[1] > self.out_dim else None
-        return {'feature': features, 'logit': logits, 'aux_logit': aux_logits}
+        if features.shape[1] > self.out_dim: 
+#             old_logits = torch.max(logits[:,:self.n_classes_old], dim=1, keepdim=True)
+#             aux_logits = torch.cat((old_logits[0], logits[:,self.n_classes_old:]), dim=1)
+#             if self.weight_normalization:
+#                 aux_logits_bs = torch.cat((logits_bs[torch.arange(x.size(0)), old_logits[1].view(-1)].view(-1,1), logits_bs[:,self.n_classes_old:]), dim=1)
+                      
+            aux_logits = self.aux_classifier(features[:, -self.out_dim:])  
+            if self.weight_normalization:
+                aux_logits, aux_logits_bs = aux_logits
+            else:
+                aux_logits_bs = None            
+        else:
+            aux_logits, aux_logits_bs = None, None
+        return {'feature': features, 'logit_bs': logits_bs, 'logit': logits, 'aux_logit_bs':aux_logits_bs, 'aux_logit': aux_logits}
 
     @property
     def features_dim(self):
@@ -108,25 +137,36 @@ class BasicNet(nn.Module):
         else:
             self._add_classes_single_fc(n_classes)
 
+        self.n_classes_old = self.n_classes
         self.n_classes += n_classes
-
+                                    
     def _add_classes_multi_fc(self, n_classes):
         if self.ntask > 1:
             new_clf = factory.get_convnet(self.convnet_type,
+                                          prev_net=len(self.convnets),
                                           nf=self.nf,
                                           dataset=self.dataset,
                                           start_class=self.start_class,
                                           remove_last_relu=self.remove_last_relu).to(self.device)
-            new_clf.load_state_dict(self.convnets[-1].state_dict())
+            
+            ref_dict = self.convnets[-1].state_dict()
+            tg_dict = new_clf.state_dict()            
+            for k, v in ref_dict.items():
+                if k in tg_dict and v.size() == tg_dict[k].size():
+                    tg_dict[k] = v
+            new_clf.load_state_dict(tg_dict)
+                        
+#             new_clf.load_state_dict(self.convnets[-1].state_dict())
             self.convnets.append(new_clf)
 
         if self.classifier is not None:
             weight = copy.deepcopy(self.classifier.weight.data)
 
         fc = self._gen_classifier(self.out_dim * len(self.convnets), self.n_classes + n_classes)
-
+        
         if self.classifier is not None and self.reuse_oldfc:
             fc.weight.data[:self.n_classes, :self.out_dim * (len(self.convnets) - 1)] = weight
+            fc.weight.data[:self.n_classes, self.out_dim * (len(self.convnets) - 1):] = 0.0
         del self.classifier
         self.classifier = fc
 

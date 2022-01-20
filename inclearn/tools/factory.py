@@ -3,7 +3,7 @@ from torch import nn
 from torch import optim
 
 from inclearn import models
-from inclearn.convnet import resnet, cifar_resnet, modified_resnet_cifar, preact_resnet
+from inclearn.convnet import resnet, resnet_merge, cifar_resnet, modified_resnet_cifar, preact_resnet
 from inclearn.datasets import data
 
 
@@ -19,6 +19,8 @@ def get_optimizer(params, optimizer, lr, weight_decay=0.0):
 def get_convnet(convnet_type, **kwargs):
     if convnet_type == "resnet18":
         return resnet.resnet18(**kwargs)
+    elif convnet_type == "resnet18_merge":
+        return resnet_merge.resnet18(**kwargs)
     elif convnet_type == "resnet32":
         return cifar_resnet.resnet32()
     elif convnet_type == "modified_resnet32":

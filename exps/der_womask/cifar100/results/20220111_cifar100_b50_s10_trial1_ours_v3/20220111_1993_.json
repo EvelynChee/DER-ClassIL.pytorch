@@ -1,0 +1,137 @@
+{
+  "config": {
+    "exp": {
+      "name": "cifar100_b50_s10_trial1_ours_v3",
+      "savedir": "./logs",
+      "tensorboard_dir": "./tensorboard/",
+      "debug": false,
+      "ckptdir": "./logs/"
+    },
+    "model": "incmodel",
+    "convnet": "resnet18_merge",
+    "train_head": "softmax",
+    "infer_head": "softmax",
+    "channel": 64,
+    "use_bias": false,
+    "last_relu": false,
+    "der": true,
+    "use_aux_cls": true,
+    "aux_n+1": true,
+    "distillation": "none",
+    "reuse_oldfc": true,
+    "weight_normalization": true,
+    "val_per_n_epoch": 50,
+    "save_ckpt": true,
+    "display_norm": false,
+    "task_max": 10,
+    "lr_min": 5e-05,
+    "lr": 0.1,
+    "weight_decay": 0.0005,
+    "dynamic_weight_decay": false,
+    "scheduler": "multistep",
+    "scheduling": [
+      100,
+      120
+    ],
+    "lr_decay": 0.1,
+    "optimizer": "sgd",
+    "epochs": 170,
+    "postprocessor": {
+      "enable": false,
+      "type": "bic",
+      "epochs": 1,
+      "batch_size": 128,
+      "lr": 0.1,
+      "scheduling": [
+        60,
+        90,
+        120
+      ],
+      "lr_decay_factor": 0.1,
+      "weight_decay": 0.0005
+    },
+    "decouple": {
+      "enable": false,
+      "epochs": 30,
+      "fullset": false,
+      "lr": 0.1,
+      "scheduling": [
+        15
+      ],
+      "lr_decay": 0.1,
+      "weight_decay": 0.0005,
+      "temperature": 5.0
+    },
+    "dataset": "cifar100",
+    "trial": 1,
+    "increment": 5,
+    "batch_size": 128,
+    "workers": 8,
+    "validation": 0,
+    "random_classes": false,
+    "start_class": 50,
+    "start_task": 1,
+    "max_task": null,
+    "coreset_strategy": "iCaRL",
+    "mem_size_mode": "uniform_fixed_per_cls",
+    "memory_size": 2000,
+    "fixed_memory_per_cls": 20,
+    "seed": 1993,
+    "classification_loss": {
+      "beta": 0.999,
+      "gamma": 0.5,
+      "margin": 0.5,
+      "warmup": 0
+    },
+    "distillation_loss": {
+      "T": 2,
+      "beta": 0.0
+    },
+    "load_mem": false,
+    "pretrain": {
+      "epochs": 200,
+      "lr": 0.1,
+      "lr_decay": 0.1,
+      "scheduling": [
+        60,
+        120,
+        160
+      ],
+      "weight_decay": 0.0005
+    },
+    "ranking_loss": {
+      "K": 2,
+      "factor": 0.0,
+      "margin": 0.5
+    },
+    "resampling": false,
+    "save_mem": true,
+    "warmup": true,
+    "warmup_epochs": 10,
+    "data_folder": "/home/evelynyi/continual_learning/DER-ClassIL.pytorch/data"
+  },
+  "results": [
+    {
+      "top1": {
+        "total": 81.52,
+        "00-49": 81.52
+      },
+      "top5": {
+        "total": 95.1,
+        "00-49": 95.1
+      }
+    },
+    {
+      "top1": {
+        "total": 78.927,
+        "00-49": 78.06,
+        "50-54": 87.6
+      },
+      "top5": {
+        "total": 95.073,
+        "00-49": 94.96,
+        "50-54": 96.2
+      }
+    }
+  ]
+}

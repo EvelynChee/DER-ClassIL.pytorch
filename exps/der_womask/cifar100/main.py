@@ -52,10 +52,10 @@ def initialization(config, seed, mode, exp_id):
     if exp_id is None:
         exp_id = -1
         cfg.exp.savedir = "./logs"
-    logger = utils.make_logger(f"exp{exp_id}_{cfg.exp.name}_{mode}", savedir=cfg.exp.savedir)
+    logger = utils.make_logger(f"{cfg.exp.name}_{mode}", savedir=cfg.exp.savedir)
 
     # Tensorboard
-    exp_name = f'{exp_id}_{cfg["exp"]["name"]}' if exp_id is not None else f'../inbox/{cfg["exp"]["name"]}'
+    exp_name = f'{cfg["exp"]["name"]}' if exp_id is not None else f'../inbox/{cfg["exp"]["name"]}'
     tensorboard_dir = cfg["exp"]["tensorboard_dir"] + f"/{exp_name}"
 
     # If not only save latest tensorboard log.
@@ -117,7 +117,7 @@ def _train(cfg, _run, ex, tensorboard):
             do_pretrain(cfg, ex, model, device, train_loader, test_loader)
             inc_dataset.shared_data_inc = train_loader.dataset.share_memory
         elif task_i < cfg['start_task']:
-            state_dict = torch.load(f'./ckpts/step{task_i}.ckpt')
+            state_dict = torch.load(f'./ckpts/{cfg["exp"]["name"]}/step{task_i}.ckpt')
             model._parallel_network.load_state_dict(state_dict)
             inc_dataset.shared_data_inc = train_loader.dataset.share_memory
         else:
@@ -138,7 +138,10 @@ def _train(cfg, _run, ex, tensorboard):
         ex.logger.info(f"top5:{acc_stats['top5']}")
 
         results["results"].append(acc_stats)
-
+        
+#         if task_i == 1:
+#             break
+        
     top1_avg_acc, top5_avg_acc = results_utils.compute_avg_inc_acc(results["results"])
 
     _run.info[f"trial{trial_i}"][f"avg_incremental_accu_top1"] = top1_avg_acc
@@ -205,7 +208,7 @@ def test(_run, _rnd, _seed):
             n_tasks=task_info["max_task"]
         )
         model.before_task(taski, inc_dataset)
-        state_dict = torch.load(f'./ckpts/step{taski}.ckpt')
+        state_dict = torch.load(f'./ckpts/{cfg["exp"]["name"]}/step{taski}.ckpt')
         model._parallel_network.load_state_dict(state_dict)
         model.eval()
 
@@ -220,6 +223,42 @@ def test(_run, _rnd, _seed):
 
     avg_test_acc = results_utils.compute_avg_inc_acc(test_results['results'])
     ex.logger.info(f"Test Average Incremental Accuracy: {avg_test_acc}")
+    
+@ex.command
+def visualize(_run, _rnd, _seed):
+    cfg, ex.logger, tensorboard = initialization(_run.config, _seed, "test", _run._id)
+    ex.logger.info(cfg)
+
+    trial_i = cfg['trial']
+    cfg.data_folder = osp.join(base_dir, "data")
+    inc_dataset = factory.get_data(cfg, trial_i)
+    # inc_dataset._current_task = taski
+    # train_loader = inc_dataset._get_loader(inc_dataset.data_cur, inc_dataset.targets_cur)
+    model = factory.get_model(cfg, trial_i, _run, ex, tensorboard, inc_dataset)
+    model._network.task_size = cfg.increment
+
+    test_results = results_utils.get_template_results(cfg)
+    for taski in range(inc_dataset.n_tasks):
+        task_info, train_loader, _, test_loader = inc_dataset.new_task()
+        model.set_task_info(
+            task=task_info["task"],
+            total_n_classes=task_info["max_class"],
+            increment=task_info["increment"],
+            n_train_data=task_info["n_train_data"],
+            n_test_data=task_info["n_test_data"],
+            n_tasks=task_info["max_task"]
+        )
+        model.before_task(taski, inc_dataset)
+        state_dict = torch.load(f'./ckpts/{cfg["exp"]["name"]}/step{taski}.ckpt')
+        model._parallel_network.load_state_dict(state_dict)
+        model.eval()
+
+        #Build exemplars
+        model.after_task(taski, inc_dataset)
+
+        ypred, ytrue = model.get_features(test_loader)
+        np.save(f'./ckpts/{cfg["exp"]["name"]}/step{taski}_feature.npy', ypred)
+        np.save(f'./ckpts/{cfg["exp"]["name"]}/step{taski}_target.npy', ytrue)
 
 if __name__ == "__main__":
     # ex.add_config('./codes/base/configs/default.yaml')

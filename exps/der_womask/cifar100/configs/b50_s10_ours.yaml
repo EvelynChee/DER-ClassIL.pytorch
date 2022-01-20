@@ -1,5 +1,5 @@
 exp:
-  name: "CIFAR100B0S10_DER_wo_prune"
+  name: "CIFAR100B0S10_DER_wo_mask"
   savedir: "./logs"
   tensorboard_dir: "./tensorboard"
   debug: False
@@ -7,37 +7,55 @@ exp:
 
 #Model Cfg
 model: "incmodel"
-convnet: 'resnet18' #modified_resnet32, resnet18
+convnet: 'resnet18_merge' #modified_resnet32, resnet18
 train_head: 'softmax'
 infer_head: 'softmax'
 channel: 64
 use_bias: False
 last_relu: False
 
-der: False
-use_aux_cls: False
-aux_n+1: False
-distillation: "none"
+der: True
+use_aux_cls: True
+aux_n+1: True
 
-reuse_oldfc: False
-weight_normalization: False
-val_per_n_epoch: 1 # Validation Per N epoch. -1 means the function is off.
+classification_loss:
+  warmup: 0
+  margin: 0.3 
+  gamma: 0.5
+  beta: 0.999
+  
+distillation_loss: 
+  T: 2
+  beta: 0.0
+
+ranking_loss:
+  factor: 0.0
+  margin: 0.5
+  K: 2
+
+reuse_oldfc: True
+weight_normalization: True
+val_per_n_epoch: 50 # Validation Per N epoch. -1 means the function is off.
 save_ckpt: True
-display_norm: False
+save_mem: True
+load_mem: False
 
 #Optimization;Training related
 task_max: 10
 lr_min: 0.00005
-lr: 0.1 #  0.0005# # 0.0003 2 0.001
-weight_decay: 0.0005 #0.0005 #0.00001 0.0005
+lr: 0.1
+weight_decay: 0.0005
 dynamic_weight_decay: False
-scheduler: 'multistep' #'multistep' cos
+scheduler: 'multistep'
 scheduling:
-  - 48 #100 # 48 our
-  - 63 #120 # 63 our
-lr_decay: 0.1 #0.1 # LUCIR 0.1 our 0.2 LR LR multiplied by it
-optimizer: "sgd" #LUCIR "sgd" our adam
-epochs: 70 #Number of epochs per task our 70
+  - 100
+  - 120
+lr_decay: 0.1
+optimizer: "sgd"
+epochs: 170
+resampling: False
+warmup: True
+warmup_epochs: 10
 
 postprocessor:
   enable: False
@@ -58,16 +76,25 @@ decouple:
   fullset: False
   lr: 0.1
   scheduling:
-    - 48
-    - 63
-  lr_decay: 0.3
+    - 15
+  lr_decay: 0.1
   weight_decay: 0.0005
   temperature: 5.0
+
+pretrain:
+  epochs: 200
+  lr: 0.1
+  scheduling:
+    - 60
+    - 120
+    - 160
+  lr_decay: 0.1
+  weight_decay: 0.0005
 
 
 # Dataset Cfg
 dataset: "cifar100" #'imagenet100', 'cifar100'
-trial: 0
+trial: 2
 increment: 5
 batch_size: 128
 workers: 8
@@ -78,14 +105,12 @@ start_task: 1
 max_task: # Cap the number of task
 
 #Memory
-coreset_strategy: "random" #"iCaRL"  ,random, inccore, k-nearest-mean
-mem_size_mode: "uniform_fixed_total_mem" #uniform_fixed_per_cls, uniform_fixed_total_mem, dynamic_fixed_per_cls
+coreset_strategy: "iCaRL"  # iCaRL, random
+mem_size_mode: "uniform_fixed_per_cls" #uniform_fixed_per_cls, uniform_fixed_total_mem
 memory_size: 2000 # Max number of storable examplars
-fixed_memory_per_cls: 30 # the fixed number of exemplars per cls
+fixed_memory_per_cls: 20 # the fixed number of exemplars per cls
 
 # Misc
 device: 0 #GPU index to use, for cpu use -1
 seed: 1993
-
-
 

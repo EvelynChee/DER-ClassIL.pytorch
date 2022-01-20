@@ -15,6 +15,7 @@ def get_template_results(cfg):
 
 def save_results(results, label):
     del results["config"]["device"]
+    del results["config"]["classification_loss"]["weights"]
 
     folder_path = os.path.join("results", "{}_{}".format(utils.get_date(), label))
     if not os.path.exists(folder_path):
