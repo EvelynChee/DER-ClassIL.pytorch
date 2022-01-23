@@ -380,6 +380,7 @@ class DummyDataset(torch.utils.data.Dataset):
             else:
                 x = cv2.imread(x)
                 x = x[:, :, ::-1]
+            x = Image.fromarray(x, 'RGB')
 
         if 'torch' in self.trsf_type:
             x = self.trsf(x)

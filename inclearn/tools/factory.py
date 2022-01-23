@@ -19,6 +19,8 @@ def get_optimizer(params, optimizer, lr, weight_decay=0.0):
 def get_convnet(convnet_type, **kwargs):
     if convnet_type == "resnet18":
         return resnet.resnet18(**kwargs)
+    elif convnet_type == "resnet50":
+        return resnet.resnet50(**kwargs)
     elif convnet_type == "resnet18_merge":
         return resnet_merge.resnet18(**kwargs)
     elif convnet_type == "resnet32":

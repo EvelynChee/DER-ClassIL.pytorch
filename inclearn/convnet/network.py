@@ -166,7 +166,7 @@ class BasicNet(nn.Module):
         
         if self.classifier is not None and self.reuse_oldfc:
             fc.weight.data[:self.n_classes, :self.out_dim * (len(self.convnets) - 1)] = weight
-            fc.weight.data[:self.n_classes, self.out_dim * (len(self.convnets) - 1):] = 0.0
+#             fc.weight.data[:self.n_classes, self.out_dim * (len(self.convnets) - 1):] = 0.0
         del self.classifier
         self.classifier = fc
 

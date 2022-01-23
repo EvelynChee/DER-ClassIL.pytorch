@@ -217,31 +217,31 @@ class IncModel(IncrementalLearner):
             weight_decay = self._weight_decay
         self._ex.logger.info("Step {} weight decay {:.5f}".format(self._task, weight_decay))
 
-#         if self._der and self._task > 0:
-#             for i in range(self._task):
-#                 for p in self._parallel_network.module.convnets[i].parameters():
-#                     p.requires_grad = False
+        if self._der and self._task > 0:
+            for i in range(self._task):
+                for p in self._parallel_network.module.convnets[i].parameters():
+                    p.requires_grad = False
 
 #             for p in self._parallel_network.classifier.parameters():
 #                 p.requires_grad = False
                     
-#         self._optimizer = factory.get_optimizer(filter(lambda p: p.requires_grad, self._network.parameters()),
-#                                                 self._opt_name, lr, weight_decay)
+        self._optimizer = factory.get_optimizer(filter(lambda p: p.requires_grad, self._network.parameters()),
+                                                self._opt_name, lr, weight_decay)
         
-        params = []
-        if self._der and self._task > 0:
-            for i in range(self._task):
-                params.append({'params': self._parallel_network.module.convnets[i].parameters(),
-                               'lr': lr * 0.001, 'weight_decay': weight_decay})
+#         params = []
+#         if self._der and self._task > 0:
+#             for i in range(self._task):
+#                 params.append({'params': self._parallel_network.module.convnets[i].parameters(),
+#                                'lr': lr * 0.001, 'weight_decay': weight_decay})
             
-        params.append({'params': self._parallel_network.module.convnets[-1].parameters(),
-                       'lr': lr, 'weight_decay': weight_decay})
-        params.append({'params': self._parallel_network.module.classifier.parameters(),
-                       'lr': lr, 'weight_decay': 0})
-        params.append({'params': self._parallel_network.module.aux_classifier.parameters(),
-                       'lr': lr, 'weight_decay': weight_decay})
+#         params.append({'params': self._parallel_network.module.convnets[-1].parameters(),
+#                        'lr': lr, 'weight_decay': weight_decay})
+#         params.append({'params': self._parallel_network.module.classifier.parameters(),
+#                        'lr': lr, 'weight_decay': 0})
+#         params.append({'params': self._parallel_network.module.aux_classifier.parameters(),
+#                        'lr': lr, 'weight_decay': weight_decay})
                 
-        self._optimizer = torch.optim.SGD(params, lr=lr, weight_decay=weight_decay, momentum=0.9)
+#         self._optimizer = torch.optim.SGD(params, lr=lr, weight_decay=weight_decay, momentum=0.9)
                
 
         if "cos" in self._cfg["scheduler"]:
@@ -358,10 +358,10 @@ class IncModel(IncrementalLearner):
             train_old_accu.reset()
             if self._warmup:
                 self._warmup_scheduler.step()
-#                 if epoch == self._cfg['warmup_epochs']:
-#                     self._network.classifier.reset_parameters()
-#                     if self._cfg['use_aux_cls']:
-#                         self._network.aux_classifier.reset_parameters()
+                if epoch == self._cfg['warmup_epochs']:
+                    self._network.classifier.reset_parameters()
+                    if self._cfg['use_aux_cls']:
+                        self._network.aux_classifier.reset_parameters()
 
             for i, (inputs, targets) in enumerate(train_loader, start=1):
                 self.train()
@@ -384,13 +384,13 @@ class IncModel(IncrementalLearner):
                     pdb.set_trace()
 
                 loss.backward()
-                self._parallel_network.module.classifier.weight.grad.data.add_(self._parallel_network.module.classifier.weight.data, alpha=self._weight_decay)
-                self._parallel_network.module.classifier.sigma.grad.data.add_(self._parallel_network.module.classifier.sigma.data, alpha=self._weight_decay)                    
+#                 self._parallel_network.module.classifier.weight.grad.data.add_(self._parallel_network.module.classifier.weight.data, alpha=self._weight_decay)
+#                 self._parallel_network.module.classifier.sigma.grad.data.add_(self._parallel_network.module.classifier.sigma.data, alpha=self._weight_decay)                    
     
-                # Set fixed param grads to 0.
-                if epoch < 110 and self._task > 0:                    
-                    self._parallel_network.module.classifier.weight.grad.data[:-self._task_size, :] = 0.0
-                    self._parallel_network.module.classifier.sigma.grad.data[:] = 0.0
+#                 # Set fixed param grads to 0.
+#                 if epoch < 110 and self._task > 0:                    
+#                     self._parallel_network.module.classifier.weight.grad.data[:-self._task_size, :] = 0.0
+#                     self._parallel_network.module.classifier.sigma.grad.data[:] = 0.0
 #                                 self._parallel_network.module.classifier.weight.grad.data.add_(self._parallel_network.module.classifier.weight.data, alpha=self._weight_decay) 
 #                 self._parallel_network.module.classifier.weight.grad.data[:-self._inc_dataset.increments[self._task], :-self._network.out_dim] *= 0.001
 #                 self._parallel_network.module.classifier.weight.grad.data[:-self._inc_dataset.increments[self._task], -self._network.out_dim:] *= 0.01
@@ -408,7 +408,7 @@ class IncModel(IncrementalLearner):
                 
             self._print_metrics(epoch, i, accu)
             
-            if self._val_per_n_epoch > 0 and epoch % self._val_per_n_epoch == 0:
+            if self._val_per_n_epoch > 0 and (epoch+1) % self._val_per_n_epoch == 0:
                 self.validate(val_loader)
 
         # For the large-scale dataset, we manage the data in the shared memory.

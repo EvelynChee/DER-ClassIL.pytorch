@@ -2,8 +2,14 @@ import os.path as osp
 import numpy as np
 import glob
 
+from PIL import Image
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+
+from .cub200 import CUB200
+from .flowers102 import Flowers102
+from .stanfordcars import StanfordCars
+from .fgvcaircraft import FGVCAircraft
 
 from torchvision import datasets, transforms
 import torch
@@ -18,6 +24,10 @@ def get_dataset(dataset_name):
         return iCIFAR10
     elif dataset_name == "cifar100":
         return iCIFAR100
+    elif dataset_name == "cub200":
+        return iCUB200
+    elif dataset_name == "stanfordcars":
+        return iStanfordCars
     elif "imagenet100" in dataset_name:
         return iImageNet100
     elif dataset_name == "imagenet":
@@ -32,7 +42,135 @@ class DataHandler:
     common_transforms = [ToTensorV2()]
     class_order = None
 
+# class iFlowers102(DataHandler):
+#     base_dataset_cls = datasets.Flowers102
+#     transform_type = 'torchvision'
+#     train_transform = transforms.Compose([
+#         transforms.RandomResizedCrop(224),
+#         transforms.RandomRotation(45),
+#         transforms.RandomHorizontalFlip(),
+#         transforms.ToTensor(),
+#         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+#     ])
+    
+#     test_transforms = transforms.Compose([
+#         transforms.Resize(256),
+#         transforms.CenterCrop(224),
+#         transforms.ToTensor(),
+#         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+#     ])
 
+#     def __init__(self, data_folder, train, is_fine_label=False):
+#         self.base_dataset = self.base_dataset_cls(data_folder, train=train, download=True)
+#         self.data = np.array(self.base_dataset.data['filepath'])
+#         self.targets = np.array(dataset.data['target'])
+#         self.n_cls = 200
+
+#     @property
+#     def is_proc_inc_data(self):
+#         return False
+
+#     @classmethod
+#     def class_order(cls, trial_i):
+#         return list(np.random.permutation(self.n_cls))
+    
+class iStanfordCars(DataHandler):
+    base_dataset_cls = StanfordCars
+    transform_type = 'torchvision'
+    train_transforms = transforms.Compose([
+        transforms.Resize((300, 300)),
+        transforms.RandomCrop((224, 224)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    
+    test_transforms = transforms.Compose([
+        transforms.Resize((300, 300)),
+        transforms.CenterCrop((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    
+    def __init__(self, data_folder, train, is_fine_label=False):
+        self.base_dataset = self.base_dataset_cls(data_folder, train=train, download=True)
+        self.data, self.targets = zip(*self.base_dataset._samples) 
+        self.data = np.array(self.data)
+        self.targets = np.array(self.targets)
+        self.n_cls = 196
+
+    @property
+    def is_proc_inc_data(self):
+        return False
+
+    @classmethod
+    def class_order(cls, trial_i):
+        return [ 59, 134, 162,   9,  42,  72, 118,  99, 109,  79,  43, 100,  16,
+               144,  27,  10, 172,  26, 191,  80, 189,   6,  87, 153,  97,  70,
+               107,   0,  88, 178,  35,   4,   2, 170, 171, 141,  51, 166, 145,
+               188,  17, 167, 101, 116,  23, 157, 180, 129,  68,  85,  32,  54,
+               103, 104,  19, 113, 106, 175,  36,  11, 159, 169,   8,  98,   3,
+                28,  57, 147, 138, 187,  56,  49,  44, 125,  62, 151, 165,  94,
+                55,  92,  12, 122,  78,  66, 193,  15, 135, 168, 184,  91, 137,
+               186,  52, 126,  40, 112,  65, 142,  64, 136,  45,  77,  89, 154,
+                90,  71, 190,  74,  30, 119,  96,  84,  67,  50, 183, 150,  69,
+                21,  18, 111, 108,  58, 174, 131, 148, 110, 194,   1, 173,  83,
+                81,  60,  13, 163,  14, 156,  63, 117,   5,  22, 143, 121,  38,
+                41,  82, 127, 114,  20,  31,  53,  37, 195, 192, 130, 152, 176,
+                86,  76,  24,  34, 181, 149,  33, 128, 182, 155, 146, 139, 120,
+               140, 102,  47,  25, 158, 123,  46, 164,  61,   7, 115,  75, 133,
+               160, 105, 132, 179, 124,  48,  73,  93,  39,  95,  29, 177, 185,
+               161]
+    
+    
+class iCUB200(DataHandler):
+    base_dataset_cls = CUB200
+    transform_type = 'torchvision'
+    train_transforms = transforms.Compose([
+        transforms.Resize((600, 600)),
+        transforms.RandomCrop((448, 448)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    
+    test_transforms = transforms.Compose([
+        transforms.Resize((600, 600)),
+        transforms.CenterCrop((448, 448)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+
+    def __init__(self, data_folder, train, is_fine_label=False):
+        self.base_dataset = self.base_dataset_cls(data_folder, train=train, download=True)
+        self.data = np.array(self.base_dataset.data['filepath'])
+        self.targets = np.array(self.base_dataset.data['target'])
+        self.n_cls = 200
+
+    @property
+    def is_proc_inc_data(self):
+        return False
+
+    @classmethod
+    def class_order(cls, trial_i):
+        return [168, 136,  51,   9, 183, 101, 171,  99,  42, 159, 191,  70,  16,
+                   188,  27,  10, 175,  26,  68, 187,  98,   6,  85,  35, 112,  43,
+                   100,   0, 103, 181,  88,  59,   4,   2, 116, 174,  94,  80, 106,
+                     1, 147,  17, 141, 131,  72,  23, 173,  54, 197, 118,  87,  32,
+                    79, 104,  91,  19, 135, 107, 178,  36,  11, 199, 142,   8, 122,
+                     3,  28,  57, 153, 172, 190,  56,  49,  44,  97,  62, 151, 169,
+                   194,  55, 192,  12, 189,  78,  66, 180,  15, 137, 109, 134,  92,
+                   119, 126,  52, 170,  40, 148,  65, 144,  64, 138,  45,  77,  89,
+                   154,  90,  71, 193,  74,  30, 113, 143,  96,  84,  67,  50, 186,
+                   156,  69,  21,  18, 111, 108,  58, 125, 157, 150, 110, 182, 129,
+                   166,  83,  81,  60,  13, 165,  14, 176,  63, 117,   5,  22, 145,
+                   121,  38,  41,  82, 127, 114,  20,  31,  53,  37, 163, 196, 130,
+                   152, 162,  86,  76,  24,  34, 184, 149,  33, 128, 198, 155, 146,
+                   167, 139, 120, 140, 102,  47,  25, 158, 123,  46, 164,  61,   7,
+                   115,  75, 133, 160, 105, 132, 179, 124,  48,  73,  93,  39,  95,
+                   195,  29, 177, 185, 161]
+
+    
 class iCIFAR10(DataHandler):
     base_dataset_cls = datasets.cifar.CIFAR10
     transform_type = 'torchvision'
@@ -138,14 +276,6 @@ class iCIFAR100(iCIFAR10):
                 18, 60, 50, 63, 61, 83, 76, 69, 35, 0, 52, 7, 65, 42, 73, 74, 30, 41, 3, 6, 53, 13, 56, 70, 77, 34, 97,
                 75, 2, 17, 93, 33, 84, 99, 51, 62, 87, 5, 15, 10, 78, 67, 44, 59, 85, 43, 11
             ]
-
-
-class DataHandler:
-    base_dataset = None
-    train_transforms = []
-    common_transforms = [ToTensorV2()]
-    class_order = None
-
 
 class iImageNet(DataHandler):
     base_dataset_cls = datasets.ImageFolder

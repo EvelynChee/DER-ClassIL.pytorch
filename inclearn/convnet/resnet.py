@@ -112,7 +112,8 @@ class ResNet(nn.Module):
         if 'cifar' in dataset:
             self.conv1 = nn.Sequential(nn.Conv2d(3, nf, kernel_size=3, stride=1, padding=1, bias=False),
                                        nn.BatchNorm2d(nf), nn.ReLU(inplace=True))
-        elif 'imagenet' in dataset:
+#         elif 'imagenet' in dataset:
+        else:
             if start_class == 0:
                 self.conv1 = nn.Sequential(
                     nn.Conv2d(3, nf, kernel_size=7, stride=2, padding=3, bias=False),
