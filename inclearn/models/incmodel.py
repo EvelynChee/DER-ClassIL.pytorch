@@ -180,9 +180,10 @@ class IncModel(IncrementalLearner):
             
     def _before_task(self, taski, inc_dataset):
         self._ex.logger.info(f"Begin step {taski}")
-
+        
         # Update Task info
         self._task = taski
+        self.the_lambda = 5.0 * math.sqrt(self._n_classes/self._task_size)
         self._n_classes += self._task_size
 
         # Memory
@@ -231,13 +232,24 @@ class IncModel(IncrementalLearner):
 #         params = []
 #         if self._der and self._task > 0:
 #             for i in range(self._task):
-#                 params.append({'params': self._parallel_network.module.convnets[i].parameters(),
-#                                'lr': lr * 0.001, 'weight_decay': weight_decay})
-            
-#         params.append({'params': self._parallel_network.module.convnets[-1].parameters(),
+#                 for p in self._parallel_network.module.convnets[i].parameters():
+#                     p.requires_grad = False
+# #                 params.append({'params': self._parallel_network.module.convnets[i].parameters(),
+# #                                'lr': lr * 0.001, 'weight_decay': weight_decay})
+
+#         alpha_params = []
+#         nalpha_params = []
+#         for n, p in self._parallel_network.module.convnets[-1].named_parameters():
+#             if 'alpha' in n:
+#                 alpha_params.append(p)
+#             else:
+#                 nalpha_params.append(p)
+#         params.append({'params': nalpha_params,
+#                        'lr': lr, 'weight_decay': weight_decay*2})
+#         params.append({'params': alpha_params,
 #                        'lr': lr, 'weight_decay': weight_decay})
 #         params.append({'params': self._parallel_network.module.classifier.parameters(),
-#                        'lr': lr, 'weight_decay': 0})
+#                        'lr': lr, 'weight_decay': weight_decay})
 #         params.append({'params': self._parallel_network.module.aux_classifier.parameters(),
 #                        'lr': lr, 'weight_decay': weight_decay})
                 
@@ -358,10 +370,13 @@ class IncModel(IncrementalLearner):
             train_old_accu.reset()
             if self._warmup:
                 self._warmup_scheduler.step()
-                if epoch == self._cfg['warmup_epochs']:
-                    self._network.classifier.reset_parameters()
-                    if self._cfg['use_aux_cls']:
-                        self._network.aux_classifier.reset_parameters()
+#                 if epoch == self._cfg['warmup_epochs']:
+#                     self._network.classifier.reset_parameters()
+#                     if self._cfg['use_aux_cls']:
+#                         self._network.aux_classifier.reset_parameters()
+
+            if epoch > 0 and self._task > 0:
+                self._parallel_network.module.classifier.weight.data[:-self._task_size, -self._network.out_dim:] = deepcopy(self._parallel_network.module.aux_classifier.weight.data[:1,-self._network.out_dim:])
 
             for i, (inputs, targets) in enumerate(train_loader, start=1):
                 self.train()
@@ -384,6 +399,7 @@ class IncModel(IncrementalLearner):
                     pdb.set_trace()
 
                 loss.backward()
+                self._parallel_network.module.classifier.weight.grad.data[:] = 0.0                
 #                 self._parallel_network.module.classifier.weight.grad.data.add_(self._parallel_network.module.classifier.weight.data, alpha=self._weight_decay)
 #                 self._parallel_network.module.classifier.sigma.grad.data.add_(self._parallel_network.module.classifier.sigma.data, alpha=self._weight_decay)                    
     
@@ -402,7 +418,7 @@ class IncModel(IncrementalLearner):
                     if self._cfg["postprocessor"]["type"].lower() == "wa":
                         for p in self._network.classifier.parameters():
                             p.data.clamp_(0.0)
-
+            
             if not self._warmup:
                 self._scheduler.step()
                 
@@ -411,6 +427,7 @@ class IncModel(IncrementalLearner):
             if self._val_per_n_epoch > 0 and (epoch+1) % self._val_per_n_epoch == 0:
                 self.validate(val_loader)
 
+                        
         # For the large-scale dataset, we manage the data in the shared memory.
         self._inc_dataset.shared_data_inc = train_loader.dataset.share_memory
 

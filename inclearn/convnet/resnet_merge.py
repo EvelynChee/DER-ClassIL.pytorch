@@ -112,6 +112,7 @@ class ResNet(nn.Module):
         self.prev_net = prev_net
         self.remove_last_relu = remove_last_relu
         self.inplanes = nf
+        self.nf = nf
         if 'cifar' in dataset:
             self.conv1 = nn.Sequential(nn.Conv2d(3, nf, kernel_size=3, stride=1, padding=1, bias=False),
                                        nn.BatchNorm2d(nf), nn.ReLU(inplace=True))
@@ -139,19 +140,19 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 8 * nf, layers[3], stride=2, remove_last_relu=remove_last_relu)
         
         if prev_net > 0:
-            self.layer1_alpha = nn.Parameter(torch.randn(prev_net)) 
+            self.layer1_alpha = nn.Parameter(torch.ones(prev_net)/(prev_net), requires_grad=True) 
             self.layer1_merge = nn.Sequential(
                 conv1x1(1 * nf * prev_net, 1 * nf, stride=1),
                 nn.ReLU(inplace=True),
                 conv1x1(1 * nf, 1 * nf, stride=1)
             )
-            self.layer2_alpha = nn.Parameter(torch.randn(prev_net)) 
+            self.layer2_alpha = nn.Parameter(torch.ones(prev_net)/(prev_net), requires_grad=True) 
             self.layer2_merge = nn.Sequential(
                 conv1x1(2 * nf * prev_net, 2 * nf, stride=1),
                 nn.ReLU(inplace=True),
                 conv1x1(2 * nf, 2 * nf, stride=1)
             )
-            self.layer3_alpha = nn.Parameter(torch.randn(prev_net)) 
+            self.layer3_alpha = nn.Parameter(torch.ones(prev_net)/(prev_net), requires_grad=True) 
             self.layer3_merge = nn.Sequential(
                 conv1x1(4 * nf * prev_net, 4 * nf, stride=1),
                 nn.ReLU(inplace=True),
@@ -211,13 +212,15 @@ class ResNet(nn.Module):
         x = self.layer1(x)
         out.append(x)
         if self.prev_net > 0:
+#             x = torch.sum(self.layer1_alpha.view(1,-1,1,1,1) * torch.stack([x] + prev[0], dim=1), dim=1)
             x_out = []
             for i in range(self.prev_net):
-                x_out.append(self.layer1_alpha[i] * prev[0][i])    
+                x_out.append(self.layer1_alpha[i] * prev[0][i])       
             x = x + self.layer1_merge(torch.cat(x_out, dim=1))
         x = self.layer2(x)
         out.append(x)
         if self.prev_net > 0:
+#             x = torch.sum(self.layer2_alpha.view(1,-1,1,1,1) * torch.stack([x] + prev[1], dim=1), dim=1)
             x_out = []
             for i in range(self.prev_net):
                 x_out.append(self.layer2_alpha[i] * prev[1][i])       
@@ -225,6 +228,7 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         out.append(x)
         if self.prev_net > 0:
+#             x = torch.sum(self.layer3_alpha.view(1,-1,1,1,1) * torch.stack([x] + prev[2], dim=1), dim=1)
             x_out = []
             for i in range(self.prev_net):
                 x_out.append(self.layer3_alpha[i] * prev[2][i])       

@@ -21,6 +21,11 @@ def finetune_last_layer(
     test_loader=None,
 ):
     network.eval()
+   
+    for conv in network.module.convnets:
+        for p in conv.parameters():
+            p.requires_grad = False
+    
     #if hasattr(network.module, "convnets"):
     #    for net in network.module.convnets:
     #        net.eval()
