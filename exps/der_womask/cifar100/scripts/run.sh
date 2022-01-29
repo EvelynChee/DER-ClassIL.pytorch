@@ -2,8 +2,8 @@
 debug='0'
 comments='None'
 trial=1
-devices=3
-pretrain=0
+devices=2
+pretrain=50
 step=10
 name="cifar100_b${pretrain}_s${step}_trial${trial}_ours_v4"
 

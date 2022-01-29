@@ -19,7 +19,7 @@ use_aux_cls: True
 aux_n+1: True
 
 classification_loss:
-  warmup: 0
+  warmup: -1
   margin: 0.3 
   gamma: 0.5
   beta: 0.99
@@ -101,7 +101,7 @@ workers: 8
 validation: 0 # Validation split (0. <= x <= 1.)
 random_classes: False #Randomize classes order of increment
 start_class: 0 # number of tasks for the first step, start from 0.
-start_task: 0
+start_task: 1
 max_task: # Cap the number of task
 
 #Memory

@@ -93,23 +93,23 @@ class BasicNet(nn.Module):
         else:
             features = self.convnet(x)
 
-        if self.ntask == 1:
-            logits = self.classifier(features)
-            if self.weight_normalization:
-                logits, logits_bs = logits
-            else:
-                logits_bs = None
-            
+#         if self.ntask == 1:
+        logits = self.classifier(features)
+        if self.weight_normalization:
+            logits, logits_bs = logits
         else:
-            logits1 = self.classifier(features)
-            logits2 = self.aux_classifier(features)
+            logits_bs = None
             
-            if self.weight_normalization:
-                logits = torch.cat([logits1[0], logits2[0][:,1:]], dim=1)
-                logits_bs = torch.cat([logits1[1], logits2[0][:,1:]], dim=1) 
-            else:
-                logits = torch.cat([logits1, logits2[:,1:]], dim=1)
-                logits_bs = None
+#         else:
+#             logits1 = self.classifier(features)
+#             logits2 = self.aux_classifier(features)
+            
+#             if self.weight_normalization:
+#                 logits = torch.cat([logits1[0], logits2[0][:,1:]], dim=1)
+#                 logits_bs = torch.cat([logits1[1], logits2[0][:,1:]], dim=1) 
+#             else:
+#                 logits = torch.cat([logits1, logits2[:,1:]], dim=1)
+#                 logits_bs = None
         
 #         if self.weight_normalization:
 #             logits, logits_bs = logits
@@ -122,8 +122,8 @@ class BasicNet(nn.Module):
 #             if self.weight_normalization:
 #                 aux_logits_bs = torch.cat((logits_bs[torch.arange(x.size(0)), old_logits[1].view(-1)].view(-1,1), logits_bs[:,self.n_classes_old:]), dim=1)
                       
-#             aux_logits = self.aux_classifier(features[:, -self.out_dim:])  
-            aux_logits = self.aux_classifier(features)  
+            aux_logits = self.aux_classifier(features[:, -self.out_dim:])  
+#             aux_logits = self.aux_classifier(features)  
             if self.weight_normalization:
                 aux_logits, aux_logits_bs = aux_logits
             else:
@@ -181,27 +181,27 @@ class BasicNet(nn.Module):
         if self.classifier is not None:
             weight = copy.deepcopy(self.classifier.weight.data)
 
-        if self.ntask == 1:
-            fc = self._gen_classifier(self.out_dim * len(self.convnets), self.n_classes + n_classes)
-        elif self.ntask == 2:
-            fc = self._gen_classifier(self.out_dim * len(self.convnets), self.n_classes)
-            fc.weight.data[:self.n_classes, :self.out_dim * (len(self.convnets)-1)] = copy.deepcopy(self.classifier.weight.data)
-            fc.weight.data[:self.n_classes, -self.out_dim:] = 0.0
-        else:
-            fc = self._gen_classifier(self.out_dim * len(self.convnets), self.n_classes)
-            fc.weight.data[:-n_classes, :-self.out_dim] = copy.deepcopy(self.classifier.weight.data)
-            fc.weight.data[-n_classes:, :-self.out_dim] = copy.deepcopy(self.aux_classifier.weight.data[1:])
-            fc.weight.data[:, -self.out_dim:] = 0.0
+#         if self.ntask == 1:
+        fc = self._gen_classifier(self.out_dim * len(self.convnets), self.n_classes + n_classes)
+#         elif self.ntask == 2:
+#             fc = self._gen_classifier(self.out_dim * len(self.convnets), self.n_classes)
+#             fc.weight.data[:self.n_classes, :self.out_dim * (len(self.convnets)-1)] = copy.deepcopy(self.classifier.weight.data)
+#             fc.weight.data[:self.n_classes, -self.out_dim:] = 0.0
+#         else:
+#             fc = self._gen_classifier(self.out_dim * len(self.convnets), self.n_classes)
+#             fc.weight.data[:-n_classes, :-self.out_dim] = copy.deepcopy(self.classifier.weight.data)
+#             fc.weight.data[-n_classes:, :-self.out_dim] = copy.deepcopy(self.aux_classifier.weight.data[1:])
+#             fc.weight.data[:, -self.out_dim:] = 0.0
             
         
-#         if self.classifier is not None and self.reuse_oldfc:
-#             fc.weight.data[:self.n_classes, :self.out_dim * (len(self.convnets) - 1)] = weight
+        if self.classifier is not None and self.reuse_oldfc:
+            fc.weight.data[:self.n_classes, :self.out_dim * (len(self.convnets) - 1)] = weight
 #             fc.weight.data[:self.n_classes, self.out_dim * (len(self.convnets) - 1):] = 0.0
         del self.classifier
         self.classifier = fc
 
         if self.aux_nplus1:
-            aux_fc = self._gen_classifier(self.out_dim * len(self.convnets), n_classes + 1)
+            aux_fc = self._gen_classifier(self.out_dim, n_classes + 1)
         else:
             aux_fc = self._gen_classifier(self.out_dim, self.n_classes + n_classes)
         del self.aux_classifier

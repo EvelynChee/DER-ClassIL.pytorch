@@ -19,7 +19,7 @@ use_aux_cls: True
 aux_n+1: True
 
 classification_loss:
-  warmup: 0
+  warmup: -1
   margin: 0.3 
   gamma: 0.5
   beta: 0.999
@@ -33,8 +33,8 @@ ranking_loss:
   margin: 0.5
   K: 2
 
-reuse_oldfc: True
-weight_normalization: True
+reuse_oldfc: False
+weight_normalization: False
 val_per_n_epoch: 50 # Validation Per N epoch. -1 means the function is off.
 save_ckpt: True
 save_mem: True
@@ -71,7 +71,7 @@ postprocessor:
   weight_decay: 0.0005
 
 decouple:
-  enable: False
+  enable: True
   epochs: 30
   fullset: False
   lr: 0.1

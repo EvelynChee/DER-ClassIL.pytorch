@@ -218,38 +218,42 @@ class IncModel(IncrementalLearner):
             weight_decay = self._weight_decay
         self._ex.logger.info("Step {} weight decay {:.5f}".format(self._task, weight_decay))
 
-        if self._der and self._task > 0:
-            for i in range(self._task):
-                for p in self._parallel_network.module.convnets[i].parameters():
-                    p.requires_grad = False
-
-#             for p in self._parallel_network.classifier.parameters():
-#                 p.requires_grad = False
-                    
-        self._optimizer = factory.get_optimizer(filter(lambda p: p.requires_grad, self._network.parameters()),
-                                                self._opt_name, lr, weight_decay)
-        
-#         params = []
 #         if self._der and self._task > 0:
 #             for i in range(self._task):
 #                 for p in self._parallel_network.module.convnets[i].parameters():
 #                     p.requires_grad = False
-# #                 params.append({'params': self._parallel_network.module.convnets[i].parameters(),
-# #                                'lr': lr * 0.001, 'weight_decay': weight_decay})
 
-#         alpha_params = []
-#         nalpha_params = []
-#         for n, p in self._parallel_network.module.convnets[-1].named_parameters():
-#             if 'alpha' in n:
-#                 alpha_params.append(p)
-#             else:
-#                 nalpha_params.append(p)
-#         params.append({'params': nalpha_params,
-#                        'lr': lr, 'weight_decay': weight_decay*2})
-#         params.append({'params': alpha_params,
+# #             for p in self._parallel_network.classifier.parameters():
+# #                 p.requires_grad = False
+                    
+#         self._optimizer = factory.get_optimizer(filter(lambda p: p.requires_grad, self._network.parameters()),
+#                                                 self._opt_name, lr, weight_decay)
+        
+        params = []
+        if self._der and self._task > 0:
+            for i in range(self._task):
+                for p in self._parallel_network.module.convnets[i].parameters():
+                    p.requires_grad = False
+#                 params.append({'params': self._parallel_network.module.convnets[i].parameters(),
+#                                'lr': lr * 0.001, 'weight_decay': weight_decay})
+
+        self.params1 = []
+        self.params2 = []
+        for n, p in self._parallel_network.module.convnets[-1].named_parameters():
+            if 'alpha' in n or 'merge' in n:
+                self.params1.append(p)
+            else:
+                self.params2.append(p)
+        
+        self.params2 += list(self._parallel_network.module.classifier.parameters()) + list(self._parallel_network.module.aux_classifier.parameters())
+                
+        self._optimizer1 = torch.optim.SGD(self.params1, lr=lr, weight_decay=weight_decay, momentum=0.9)        
+        self._optimizer = torch.optim.SGD(self.params, lr=lr, weight_decay=weight_decay, momentum=0.9)
+        
+#         params.append({'params': self._parallel_network.module.convnets[-1].parameters(),
 #                        'lr': lr, 'weight_decay': weight_decay})
 #         params.append({'params': self._parallel_network.module.classifier.parameters(),
-#                        'lr': lr, 'weight_decay': weight_decay})
+#                        'lr': lr*0.1, 'weight_decay': weight_decay})
 #         params.append({'params': self._parallel_network.module.aux_classifier.parameters(),
 #                        'lr': lr, 'weight_decay': weight_decay})
                 
@@ -257,14 +261,22 @@ class IncModel(IncrementalLearner):
                
 
         if "cos" in self._cfg["scheduler"]:
+            self._scheduler1 = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer1, self._n_epochs)
             self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer, self._n_epochs)
         else:
+            self._scheduler1 = torch.optim.lr_scheduler.MultiStepLR(self._optimizer1,
+                                                                   self._scheduling,
+                                                                   gamma=self._lr_decay)
             self._scheduler = torch.optim.lr_scheduler.MultiStepLR(self._optimizer,
                                                                    self._scheduling,
                                                                    gamma=self._lr_decay)
 
         if self._warmup:
             print("warmup")
+            self._warmup_scheduler1 = GradualWarmupScheduler(self._optimizer1,
+                                                            multiplier=1,
+                                                            total_epoch=self._cfg['warmup_epochs'],
+                                                            after_scheduler=self._scheduler)            
             self._warmup_scheduler = GradualWarmupScheduler(self._optimizer,
                                                             multiplier=1,
                                                             total_epoch=self._cfg['warmup_epochs'],
@@ -370,17 +382,33 @@ class IncModel(IncrementalLearner):
             train_old_accu.reset()
             if self._warmup:
                 self._warmup_scheduler.step()
-#                 if epoch == self._cfg['warmup_epochs']:
-#                     self._network.classifier.reset_parameters()
-#                     if self._cfg['use_aux_cls']:
-#                         self._network.aux_classifier.reset_parameters()
+                self._warmup_scheduler1.step()
+                if epoch == self._cfg['warmup_epochs']:
+                    self._network.classifier.reset_parameters()
+                    if self._cfg['use_aux_cls']:
+                        self._network.aux_classifier.reset_parameters()
 
-            if epoch > 0 and self._task > 0:
-                self._parallel_network.module.classifier.weight.data[:-self._task_size, -self._network.out_dim:] = deepcopy(self._parallel_network.module.aux_classifier.weight.data[:1,-self._network.out_dim:])
+#             if epoch > 0 and self._task > 0:
+#                 self._parallel_network.module.classifier.weight.data[:-self._task_size, -self._network.out_dim:] = deepcopy(self._parallel_network.module.aux_classifier.weight.data[:1,-self._network.out_dim:])
 
             for i, (inputs, targets) in enumerate(train_loader, start=1):
-                self.train()
-                self._optimizer.zero_grad()
+                if i % 5 == 0:
+                    for p in self.params1:
+                        p.requires_grad = True
+                    for p in self.params2:
+                        p.requires_grad = False
+                    self.eval()
+                    self._optimizer1.zero_grad()
+                else:
+                    for p in self.params1:
+                        p.requires_grad = False
+                    for p in self.params2:
+                        p.requires_grad = True
+                    self.train()
+                    self._optimizer.zero_grad()
+        
+#                 self.train()
+#                 self._optimizer.zero_grad()
                 old_classes = targets < (self._n_classes - self._task_size)
                 new_classes = targets >= (self._n_classes - self._task_size)
                 loss = self._forward_loss(
@@ -399,7 +427,11 @@ class IncModel(IncrementalLearner):
                     pdb.set_trace()
 
                 loss.backward()
-                self._parallel_network.module.classifier.weight.grad.data[:] = 0.0                
+                
+                
+#                 if epoch < 100:
+#                     self._parallel_network.module.classifier.weight.grad.data[:] = 0.0    
+                    
 #                 self._parallel_network.module.classifier.weight.grad.data.add_(self._parallel_network.module.classifier.weight.data, alpha=self._weight_decay)
 #                 self._parallel_network.module.classifier.sigma.grad.data.add_(self._parallel_network.module.classifier.sigma.data, alpha=self._weight_decay)                    
     
@@ -412,7 +444,12 @@ class IncModel(IncrementalLearner):
 #                 self._parallel_network.module.classifier.weight.grad.data[:-self._inc_dataset.increments[self._task], -self._network.out_dim:] *= 0.01
 #                 self._parallel_network.module.classifier.sigma.grad.data.add_(self._parallel_network.module.classifier.sigma.data, alpha=self._weight_decay) 
                 
-                self._optimizer.step()
+                if i % 5 == 0:
+                    self._optimizer1.step()
+                else:
+                    self._optimizer.step()
+                    
+#                 self._optimizer.step()
 
                 if self._cfg["postprocessor"]["enable"]:
                     if self._cfg["postprocessor"]["type"].lower() == "wa":
@@ -420,6 +457,7 @@ class IncModel(IncrementalLearner):
                             p.data.clamp_(0.0)
             
             if not self._warmup:
+                self._scheduler1.step()
                 self._scheduler.step()
                 
             self._print_metrics(epoch, i, accu)
